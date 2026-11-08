@@ -50,9 +50,12 @@ export const formatBytes = (value: string | number) => {
   return `${n.toFixed(i === 0 ? 0 : 1)} ${units[i]}`;
 };
 
-export const formatDuration = (start: string | null, end: string | null) => {
-  if (!start || !end) return "—";
-  const s = Math.max(0, Math.round((new Date(end).getTime() - new Date(start).getTime()) / 1000));
+// 実行中のジョブは終了時刻が未確定なので、現在時刻までの経過時間を出す
+export const formatDuration = (start: string | null, end: string | null, running = false) => {
+  if (!start) return "—";
+  const endMs = running ? Date.now() : end ? new Date(end).getTime() : null;
+  if (endMs === null) return "—";
+  const s = Math.max(0, Math.round((endMs - new Date(start).getTime()) / 1000));
   const h = Math.floor(s / 3600), m = Math.floor((s % 3600) / 60), sec = s % 60;
   return h > 0 ? `${h}時間${m}分` : m > 0 ? `${m}分${sec}秒` : `${sec}秒`;
 };

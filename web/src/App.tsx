@@ -52,7 +52,7 @@ export function App() {
                 <td style={td}>{LEVEL[j.level] ?? j.level}</td>
                 <td style={{ ...td, color: COLOR[st.kind], fontWeight: 600 }}>{st.label}</td>
                 <td style={td}>{formatTime(j.starttime)}</td>
-                <td style={td}>{formatDuration(j.starttime, j.endtime)}</td>
+                <td style={td}>{formatDuration(j.starttime, j.endtime, st.kind === "running")}</td>
                 <td style={{ ...td, textAlign: "right" }}>{j.jobfiles.toLocaleString()}</td>
                 <td style={{ ...td, textAlign: "right" }}>{formatBytes(j.jobbytes)}</td>
               </tr>
