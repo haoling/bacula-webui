@@ -1,5 +1,6 @@
 import { useQuery } from "@tanstack/react-query";
 import { useState } from "react";
+import { Volumes } from "./Volumes";
 import { LEVEL, formatBytes, formatDuration, formatTime, statusInfo, type StatusKind } from "./format";
 
 type Job = {
@@ -23,6 +24,7 @@ const th: React.CSSProperties = { textAlign: "left", padding: "4px 12px", border
 const td: React.CSSProperties = { padding: "4px 12px", borderBottom: "1px solid #eaeef2" };
 
 export function App() {
+  const [tab, setTab] = useState<"jobs" | "volumes">("jobs");
   const [selected, setSelected] = useState<number | null>(null);
   const jobs = useQuery({ queryKey: ["jobs"], queryFn: () => getJson<Job[]>("/api/jobs"), refetchInterval: 10000 });
   const log = useQuery({
@@ -32,6 +34,14 @@ export function App() {
   });
   return (
     <main style={{ fontFamily: "sans-serif", padding: 16 }}>
+      <nav style={{ display: "flex", gap: 12, marginBottom: 8 }}>
+        <button onClick={() => setTab("jobs")} disabled={tab === "jobs"}>ジョブ</button>
+        <button onClick={() => setTab("volumes")} disabled={tab === "volumes"}>Volume</button>
+      </nav>
+      {tab === "volumes" && (
+        <Volumes onJob={(id) => { setSelected(id); setTab("jobs"); }} />
+      )}
+      {tab === "jobs" && (<>
       <h1>Bacula ジョブ</h1>
       {jobs.isError && <p style={{ color: COLOR.error }}>ジョブ一覧を取得できませんでした</p>}
       <table style={{ borderCollapse: "collapse" }}>
@@ -68,6 +78,7 @@ export function App() {
           </pre>
         </section>
       )}
+      </>)}
     </main>
   );
 }
