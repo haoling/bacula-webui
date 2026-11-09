@@ -1,0 +1,5 @@
+@import "tailwindcss";
+/* テーマは daisyUI 標準のライト/ダークを OS 設定に追従させる。色は daisyUI のテーマ色 (success, warning など) を使い、個別の色コードは書かない */
+@plugin "daisyui" {
+  themes: light --default, dark --prefersdark;
+}

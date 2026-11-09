@@ -22,6 +22,7 @@
 
 - `server/src/index.ts` ルート定義。`server/src/db.ts` DB 接続。ルートが増えたら機能ごとにファイルを分け、`index.ts` から明示的に登録する。
 - `web/src/` 画面。データ取得は TanStack Query、API の型は画面側で明示的に定義する。
+- UI は Tailwind CSS v4 + daisyUI v5（`web/src/index.css` で読み込み）。画面の枠は `web/src/Layout.tsx`（`Layout` / `Card` / `ErrorAlert`）を使い、色は個別の色コードではなく daisyUI のテーマ色（`bg-success`、`badge-error` など）で指定する。
 - ビルド成果物（`server/public`、`server/dist`）はコミットしない。
 
 ## 確認
