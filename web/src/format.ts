@@ -29,7 +29,7 @@ const STATUS: Record<string, { label: string; kind: StatusKind }> = {
 
 export const statusInfo = (code: string) => STATUS[code] ?? { label: code, kind: "wait" as StatusKind };
 
-export const LEVEL: Record<string, string> = { F: "Full", I: "増分", D: "差分", B: "ベース" };
+export const LEVEL: Record<string, string> = { F: "Full", I: "Incr", D: "Diff", B: "Base" };
 
 // DB は UTC の ISO 文字列で返ってくるので、日本時間で表示する
 export const formatTime = (iso: string | null) =>
