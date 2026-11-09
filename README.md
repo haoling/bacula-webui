@@ -9,7 +9,7 @@ Bacula を管理するための、自分用 Web UI。TypeScript 一本（Hono + 
 | 1 | ジョブ一覧、ジョブログ閲覧 | 実装中 |
 | 2 | ジョブ実行、進捗バー、スケジュールの表示と有効/無効化 | 予定 |
 | 3 | バックアップ済みファイルのツリー表示（最新版優先、バージョン履歴） | 予定 |
-| 4 | Volume 使用状況の横帯表示 | 予定 |
+| 4 | Volume 使用状況の横帯表示 | 実装中 (`/api/volumes`、Volume タブ) |
 | 5 | テープライブラリの有効/無効化 | 予定 |
 
 ## 構成
@@ -25,6 +25,12 @@ Dockerfile 1 イメージ (server + ビルド済み web)
   - 操作系（ジョブ実行、スケジュール、ストレージ有効化）: bconsole をコマンド実行（Phase 2 以降）。
   - 進捗: `status director` 等を定期取得して SSE で配信（Phase 2）。
 - 認証: アプリ自体にログインは無い。前段の common-auth（forwardAuth）に任せるため、アプリへの経路は必ず common-auth 経由にすること。
+
+## Volume 帯の計算
+
+- File ボリューム: `JobMedia` の `StartFile/StartBlock` は `(file << 32) | block` のバイト位置なので、区間は正確。
+- テープ: 位置が物理バイトではないため、ジョブのバイト数を「その Volume の JobMedia 行数 / 全 Volume の行数」で按分し、`VolBytes` に合わせて補正した **推定**（画面では斜線）。容量は `MaxVolBytes`、0 のときは Media Type の公称値。
+- 空き = 容量 − カタログに残っているジョブの区間（Purge 済みの領域も空きになる）。
 
 ## 設定（環境変数）
 

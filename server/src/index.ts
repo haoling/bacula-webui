@@ -2,9 +2,12 @@ import { serve } from "@hono/node-server";
 import { serveStatic } from "@hono/node-server/serve-static";
 import { Hono } from "hono";
 import { pool } from "./db.js";
+import { volumes } from "./volumes.js";
 
 // 認証は前段の common-auth (forwardAuth) に任せる。アプリ自体にログインは持たない。
 const app = new Hono();
+
+app.route("/", volumes);
 
 app.get("/healthz", (c) => c.text("ok"));
 
