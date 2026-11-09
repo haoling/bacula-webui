@@ -4,6 +4,7 @@ export type JobMediaRow = {
   jobid: number;
   name: string;
   level: string;
+  priorjobid?: number;
   jobbytes: number;
   startfile: number;
   startblock: number;
@@ -19,6 +20,9 @@ export type Segment = {
   level?: string;
   // 容量の根拠が推定 (テープなど) の区間
   estimated?: boolean;
+  // Copy の関係: copyOf は原本の JobId (コピー自身のとき)、copiedTo はコピー先の JobId
+  copyOf?: number;
+  copiedTo?: number[];
 };
 
 const TWO32 = 2 ** 32;

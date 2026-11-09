@@ -16,12 +16,22 @@ volumes.get("/api/volumes", async (c) => {
       ORDER BY p.name, m.mediaid`,
   );
   const jm = await pool.query(
-    `SELECT jm.mediaid, jm.jobid, j.name, j.level, j.jobbytes::float8 AS jobbytes,
+    `SELECT jm.mediaid, jm.jobid, j.name, j.level, j.priorjobid, j.jobbytes::float8 AS jobbytes,
             jm.startfile::float8 AS startfile, jm.startblock::float8 AS startblock,
             jm.endfile::float8 AS endfile, jm.endblock::float8 AS endblock
        FROM jobmedia jm JOIN job j USING (jobid)
       ORDER BY jm.mediaid, jm.jobmediaid`,
   );
+
+  // Copy で作られたジョブ (Type C、原本を purge すると B に昇格) は PriorJobId に原本を持つ。
+  // 「原本 JobId -> コピー先 JobId」を、正常終了したコピーだけで作る。
+  const copies = await pool.query(
+    `SELECT jobid, priorjobid FROM job WHERE priorjobid > 0 AND jobstatus IN ('T', 'W')`,
+  );
+  const copiedTo = new Map<number, number[]>();
+  for (const r of copies.rows) copiedTo.set(r.priorjobid, [...(copiedTo.get(r.priorjobid) ?? []), r.jobid]);
+  const priorOf = new Map<number, number>();
+  for (const r of jm.rows) if (r.priorjobid > 0) priorOf.set(r.jobid, r.priorjobid);
 
   const rowsByMedia = new Map<number, JobMediaRow[]>();
   const volumesOfJob = new Map<number, Set<number>>();
@@ -52,11 +62,22 @@ volumes.get("/api/volumes", async (c) => {
       : isFile
         ? fileSegments(rows, Math.max(capacity, used), jobSplit)
         : tapeSegments(rows, Math.max(capacity, used), rowCountOfJob, used);
+    // コピー情報を区間に付ける。コピー自身 (PriorJobId あり) は対象外。
+    const withCopy = segments.map((seg) =>
+      seg.jobid === undefined
+        ? seg
+        : { ...seg, copyOf: priorOf.get(seg.jobid) ?? 0, copiedTo: copiedTo.get(seg.jobid) ?? [] },
+    );
+    const originals = withCopy.filter((seg) => seg.jobid !== undefined && !seg.copyOf);
+    // 原本ジョブがすべてコピー済みなら、Volume を空けても失うデータは無い
+    const copyState =
+      originals.length === 0 ? "none" : originals.every((seg) => (seg.copiedTo?.length ?? 0) > 0) ? "all"
+        : originals.some((seg) => (seg.copiedTo?.length ?? 0) > 0) ? "partial" : "none";
     return {
       mediaid: m.mediaid, volumename: m.volumename, pool: m.pool, status: m.volstatus,
       mediatype: m.mediatype, kind: isFile ? "file" : "tape", usedBytes: used,
       capacity: Math.max(capacity, used), capacityEstimated: max <= 0 && !isFile,
-      lastwritten: m.lastwritten, inchanger: !!m.inchanger, slot: m.slot, segments,
+      lastwritten: m.lastwritten, inchanger: !!m.inchanger, slot: m.slot, segments: withCopy, copyState,
     };
   });
   return c.json(result);
