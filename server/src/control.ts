@@ -46,7 +46,8 @@ control.get("/api/director/jobs", async (c) => {
   try {
     const [defs, active] = await Promise.all([definedJobs(), activeJobNames()]);
     return c.json(defs.map((d) => ({ ...d, running: active.has(d.name) })));
-  } catch {
+  } catch (e) {
+    console.error(e);
     return c.json({ error: "Director に接続できません" }, 502);
   }
 });
@@ -62,7 +63,8 @@ control.get("/api/schedule", async (c) => {
       if (m) rows.push({ level: m[1], type: m[2], priority: Number(m[3]), when: m[4], job: m[5], schedule: m[6] });
     }
     return c.json(rows);
-  } catch {
+  } catch (e) {
+    console.error(e);
     return c.json({ error: "Director に接続できません" }, 502);
   }
 });
@@ -104,7 +106,8 @@ control.get("/api/progress", async (c) => {
       });
     }
     return c.json(running);
-  } catch {
+  } catch (e) {
+    console.error(e);
     return c.json({ error: "Director に接続できません" }, 502);
   }
 });
@@ -115,7 +118,7 @@ control.post("/api/jobs/run", async (c) => {
   const body = await c.req.json().catch(() => ({}));
   const { job, level } = body as { job?: unknown; level?: unknown };
   if (!isSafeName(job) || !LEVELS.includes(level as (typeof LEVELS)[number])) return c.json({ error: "bad request" }, 400);
-  const target = (await definedJobs().catch(() => [])).find((d) => d.name === job);
+  const target = (await definedJobs()).find((d) => d.name === job);
   if (!target || target.type !== "B") return c.json({ error: "実行できるバックアップジョブではありません" }, 404);
   if ((await activeJobNames()).has(job)) return c.json({ error: "同名のジョブが実行中です" }, 409);
   const out = await bconsole([`run job=${job} level=${level} yes`]);
@@ -127,7 +130,13 @@ control.post("/api/director/jobs/:name/enabled", async (c) => {
   const name = c.req.param("name");
   const { enabled } = (await c.req.json().catch(() => ({}))) as { enabled?: unknown };
   if (!isSafeName(name) || typeof enabled !== "boolean") return c.json({ error: "bad request" }, 400);
-  if (!(await definedJobs().catch(() => [])).some((d) => d.name === name)) return c.json({ error: "not found" }, 404);
+  if (!(await definedJobs()).some((d) => d.name === name)) return c.json({ error: "not found" }, 404);
   const out = await bconsole([`${enabled ? "enable" : "disable"} job=${name}`]);
   return c.json({ ok: /OK|enabled|disabled/i.test(out), output: out });
+});
+
+// bconsole が失敗したとき (設定なし・Director 不達など) は、画面にエラーとして出せるよう JSON で返す
+control.onError((e, c) => {
+  console.error(e);
+  return c.json({ error: "Director に接続できません" }, 502);
 });

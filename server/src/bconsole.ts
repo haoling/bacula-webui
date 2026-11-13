@@ -16,10 +16,18 @@ export function bconsole(commands: string[]): Promise<string> {
     if (commands.some((c) => /[\r\n]/.test(c))) return reject(new Error("invalid command"));
     const p = spawn("bconsole", ["-n", "-c", CONFIG], { stdio: ["pipe", "pipe", "pipe"] });
     let out = "";
+    let err = "";
     const timer = setTimeout(() => { p.kill(); reject(new Error("bconsole timeout")); }, TIMEOUT_MS);
     p.stdout.on("data", (d) => (out += d));
+    p.stderr.on("data", (d) => (err += d));
     p.on("error", (e) => { clearTimeout(timer); reject(e); });
-    p.on("close", () => { clearTimeout(timer); resolve(out); });
+    p.on("close", () => {
+      clearTimeout(timer);
+      // 設定ファイルが無い・Director に繋がらないときは bconsole が何かを出して終了するだけで、
+      // そのまま解析すると「空の一覧」に見えてしまう。接続成功の応答 (1000 OK) が無ければ失敗として扱う。
+      if (!out.includes("1000 OK")) return reject(new Error(`bconsole failed: ${(err || out).trim().slice(0, 200)}`));
+      resolve(out);
+    });
     p.stdin.end(`${commands.join("\n")}\nquit\n`);
   });
 }
