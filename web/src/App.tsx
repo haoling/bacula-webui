@@ -1,6 +1,7 @@
 import { keepPreviousData, useQuery } from "@tanstack/react-query";
 import { useEffect, useState } from "react";
 import { Card, ErrorAlert, Layout } from "./Layout";
+import { Control } from "./Control";
 import { Volumes } from "./Volumes";
 import { LEVEL, formatBytes, formatDuration, formatTime, statusInfo, type StatusKind } from "./format";
 
@@ -43,7 +44,7 @@ const BADGE: Record<StatusKind, string> = {
 };
 
 export function App() {
-  const [tab, setTab] = useState<"jobs" | "volumes">("jobs");
+  const [tab, setTab] = useState<"jobs" | "control" | "volumes">("jobs");
   const [selected, setSelected] = useState<number | null>(null);
   const [nameInput, setNameInput] = useState("");
   const [clientInput, setClientInput] = useState("");
@@ -77,10 +78,11 @@ export function App() {
   });
   return (
     <Layout
-      tabs={[{ key: "jobs", label: "ジョブ" }, { key: "volumes", label: "Volume" }]}
+      tabs={[{ key: "jobs", label: "ジョブ" }, { key: "control", label: "実行・スケジュール" }, { key: "volumes", label: "Volume" }]}
       current={tab}
       onChange={setTab}
     >
+      {tab === "control" && <Control />}
       {tab === "volumes" && (
         <Volumes onJob={(id) => { setSelected(id); setTab("jobs"); }} />
       )}
