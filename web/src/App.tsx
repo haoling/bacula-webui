@@ -1,5 +1,5 @@
-import { useQuery } from "@tanstack/react-query";
-import { useState } from "react";
+import { keepPreviousData, useQuery } from "@tanstack/react-query";
+import { useEffect, useState } from "react";
 import { Card, ErrorAlert, Layout } from "./Layout";
 import { Volumes } from "./Volumes";
 import { LEVEL, formatBytes, formatDuration, formatTime, statusInfo, type StatusKind } from "./format";
@@ -10,6 +10,25 @@ type Job = {
   jobfiles: number; jobbytes: string;
 };
 type LogLine = { time: string; logtext: string };
+type JobPage = { total: number; rows: Job[] };
+
+const PAGE_SIZE = 50;
+
+// 状態の絞り込み。値は Bacula の JobStatus コード (カンマ区切りで複数)
+const STATUS_FILTER = [
+  ["", "すべての状態"], ["T", "成功"], ["W", "警告つき成功"], ["E,e,f,I", "エラー・失敗"],
+  ["R", "実行中"], ["A", "キャンセル"],
+] as const;
+
+// 入力のたびに API を叩かないよう、入力が止まってから反映する
+function useDebounced<T>(value: T, ms = 300): T {
+  const [v, setV] = useState(value);
+  useEffect(() => {
+    const t = setTimeout(() => setV(value), ms);
+    return () => clearTimeout(t);
+  }, [value, ms]);
+  return v;
+}
 
 const getJson = async <T,>(url: string): Promise<T> => {
   const r = await fetch(url);
@@ -26,11 +45,35 @@ const BADGE: Record<StatusKind, string> = {
 export function App() {
   const [tab, setTab] = useState<"jobs" | "volumes">("jobs");
   const [selected, setSelected] = useState<number | null>(null);
-  const jobs = useQuery({ queryKey: ["jobs"], queryFn: () => getJson<Job[]>("/api/jobs"), refetchInterval: 10000 });
+  const [nameInput, setNameInput] = useState("");
+  const [clientInput, setClientInput] = useState("");
+  const [status, setStatus] = useState("");
+  const [page, setPage] = useState(0);
+  const name = useDebounced(nameInput);
+  const client = useDebounced(clientInput);
+  // 絞り込み条件が変わったら先頭ページに戻す
+  useEffect(() => setPage(0), [name, client, status]);
+
+  const jobs = useQuery({
+    queryKey: ["jobs", name, client, status, page],
+    queryFn: () => {
+      const q = new URLSearchParams({ limit: String(PAGE_SIZE), offset: String(page * PAGE_SIZE) });
+      if (name) q.set("name", name);
+      if (client) q.set("client", client);
+      if (status) q.set("status", status);
+      return getJson<JobPage>(`/api/jobs?${q}`);
+    },
+    placeholderData: keepPreviousData,
+    refetchInterval: 10000,
+  });
+  const totalPages = Math.max(1, Math.ceil((jobs.data?.total ?? 0) / PAGE_SIZE));
+  // 実行中のジョブのログは増え続けるので、一覧にいる間は定期的に取り直す
+  const selectedRunning = jobs.data?.rows.some((j) => j.jobid === selected && statusInfo(j.jobstatus).kind === "running");
   const log = useQuery({
     queryKey: ["log", selected],
     queryFn: () => getJson<LogLine[]>(`/api/jobs/${selected}/log`),
     enabled: selected !== null,
+    refetchInterval: selectedRunning ? 5000 : false,
   });
   return (
     <Layout
@@ -44,6 +87,21 @@ export function App() {
       {tab === "jobs" && (<>
         {jobs.isError && <ErrorAlert>ジョブ一覧を取得できませんでした</ErrorAlert>}
         <Card title="ジョブ">
+          <div className="flex flex-wrap items-center gap-2">
+            <input className="input input-sm" placeholder="ジョブ名" value={nameInput}
+                   onChange={(e) => setNameInput(e.target.value)} />
+            <input className="input input-sm" placeholder="Client" value={clientInput}
+                   onChange={(e) => setClientInput(e.target.value)} />
+            <select className="select select-sm w-auto" value={status} onChange={(e) => setStatus(e.target.value)}>
+              {STATUS_FILTER.map(([v, label]) => <option key={v} value={v}>{label}</option>)}
+            </select>
+            <span className="ml-auto text-sm">{jobs.data ? `${jobs.data.total.toLocaleString()} 件` : ""}</span>
+            <div className="join">
+              <button className="btn btn-sm join-item" disabled={page === 0} onClick={() => setPage(page - 1)}>前へ</button>
+              <span className="btn btn-sm join-item pointer-events-none">{page + 1} / {totalPages}</span>
+              <button className="btn btn-sm join-item" disabled={page + 1 >= totalPages} onClick={() => setPage(page + 1)}>次へ</button>
+            </div>
+          </div>
           <div className="overflow-x-auto">
             <table className="table table-sm">
               <thead>
@@ -55,7 +113,7 @@ export function App() {
               </thead>
               <tbody>
                 {jobs.isLoading && <tr><td colSpan={9} className="text-center"><span className="loading loading-dots" /></td></tr>}
-                {jobs.data?.map((j) => {
+                {jobs.data?.rows.map((j) => {
                   const st = statusInfo(j.jobstatus);
                   return (
                     <tr key={j.jobid} onClick={() => setSelected(j.jobid)}
