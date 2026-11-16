@@ -3,6 +3,7 @@ import { serveStatic } from "@hono/node-server/serve-static";
 import { Hono } from "hono";
 import { control } from "./control.js";
 import { jobs } from "./jobs.js";
+import { pools } from "./pools.js";
 import { volumes } from "./volumes.js";
 
 // 認証は前段の common-auth (forwardAuth) に任せる。アプリ自体にログインは持たない。
@@ -11,6 +12,7 @@ const app = new Hono();
 app.route("/", jobs);
 app.route("/", control);
 app.route("/", volumes);
+app.route("/", pools);
 
 app.get("/healthz", (c) => c.text("ok"));
 

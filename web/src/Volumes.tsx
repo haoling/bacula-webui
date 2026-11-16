@@ -59,6 +59,66 @@ function Bar({ v, onJob }: { v: Volume; onJob: (id: number) => void }) {
   );
 }
 
+type PoolSummary = {
+  pool: string; volumes: number; usedBytes: number;
+  reusableBytes: number; appendFreeBytes: number; unallocatedBytes: number | null;
+  storages: { name: string; diskFreeBytes: number | null }[];
+};
+
+// Pool ごとの容量サマリー。
+function PoolSummaries() {
+  const q = useQuery({ queryKey: ["pools"], queryFn: async () => {
+    const r = await fetch("/api/pools");
+    if (!r.ok) throw new Error(`${r.status}`);
+    return (await r.json()) as PoolSummary[];
+  } });
+  return (
+    <Card title="Pool 容量サマリー">
+      {q.isLoading && <span className="loading loading-dots" />}
+      {q.isError && <ErrorAlert>Pool の容量を取得できませんでした</ErrorAlert>}
+      {q.data && (
+        <div className="overflow-x-auto">
+          <table className="table table-sm">
+            <thead>
+              <tr>
+                <th>Pool</th><th className="text-right">Volume 数</th>
+                <th className="text-right">Volume 使用量 (VolBytes)</th>
+                <th className="text-right">空き (再利用可 + 追記可 + 未作成)</th>
+                <th className="text-right">ディスクの空き</th>
+              </tr>
+            </thead>
+            <tbody>
+              {q.data.map((p) => {
+                const free = p.reusableBytes + p.appendFreeBytes + (p.unallocatedBytes ?? 0);
+                return (
+                  <tr key={p.pool}>
+                    <td><b>{p.pool}</b></td>
+                    <td className="text-right">{p.volumes}</td>
+                    <td className="text-right">{formatBytes(p.usedBytes)}</td>
+                    <td className="text-right" title={`再利用可 ${formatBytes(p.reusableBytes)} / 追記可 ${formatBytes(p.appendFreeBytes)} / 未作成 ${p.unallocatedBytes === null ? "不明" : formatBytes(p.unallocatedBytes)}`}>
+                      {formatBytes(free)}
+                    </td>
+                    <td className="text-right">
+                      {p.storages.length === 0 ? "—" : p.storages.map((s) => (
+                        <div key={s.name}>{s.diskFreeBytes === null ? "取得不可" : formatBytes(s.diskFreeBytes)} <span className="text-base-content/60">({s.name})</span></div>
+                      ))}
+                    </td>
+                  </tr>
+                );
+              })}
+            </tbody>
+          </table>
+        </div>
+      )}
+      <p className="text-base-content/60 text-xs">
+        Volume 使用量は VolBytes の合計で、ディスク上のファイルサイズとほぼ等しい。
+        空き: Purged/Recycle の Volume の容量 + 追記中 Volume の残り + MaxVols まで未作成の分。
+        ディスクの空き: SD が報告する File デバイスのファイルシステムの空き (テープは対象外)。
+      </p>
+    </Card>
+  );
+}
+
 export function Volumes({ onJob }: { onJob: (id: number) => void }) {
   const vols = useQuery({ queryKey: ["volumes"], queryFn: async () => {
     const r = await fetch("/api/volumes");
@@ -75,6 +135,7 @@ export function Volumes({ onJob }: { onJob: (id: number) => void }) {
 
   return (
     <>
+      <PoolSummaries />
       <Card title="Volume 使用状況">
         <div className="flex flex-wrap gap-4 text-sm">
           {LEGEND.map(([k, label]) => (
