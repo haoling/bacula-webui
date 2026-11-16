@@ -37,9 +37,8 @@ Dockerfile 1 イメージ (server + ビルド済み web)
 
 `/api/pools`。Volume タブの先頭に Pool ごとの表を出す。
 
-- **Volume 使用量**: カタログの `VolBytes` の合計。
+- **Volume 使用量**: カタログの `VolBytes` の合計。File Volume ではディスク上のファイルサイズとほぼ等しいので、実サイズの別取得はしない。
 - **空き**: Purged/Recycle の Volume の容量 + 追記中 (Append) の Volume の残り + `MaxVols` まで未作成の Volume 分 (`MaxVols`/`MaxVolBytes` が両方設定されているときのみ)。
-- **ディスク上の実容量**: カタログにも bconsole にもファイルの実サイズは無いため、`VOLUME_DIRS` に SD のディスクをマウントして `stat` した合計。Purged でもファイルは Truncate されない限り残るので、`VolBytes` より大きくなりうる。
 - **ディスクの空き**: `status storage=<名前>` の `Available Space` (SD が File デバイスだけ報告するファイルシステムの空き)。Pool と Storage の対応は Media の `StorageId` による。
 
 
@@ -58,7 +57,6 @@ Dockerfile 1 イメージ (server + ビルド済み web)
 |---|---|
 | `DB_HOST` `DB_PORT` `DB_NAME` `DB_USER` `DB_PASSWORD` | カタログ DB（読み取り専用ロール）。`DB_PORT` の既定は 5432、`DB_NAME` の既定は `bacula` |
 | `BCONSOLE_CONFIG` | bconsole の設定ファイルのパス（既定 `/etc/bacula/bconsole.conf`）。Director への接続情報とパスワードを含むので Secret としてマウントする |
-| `VOLUME_DIRS` | (任意) File Volume の実ファイルがあるディレクトリ。コロン区切りで複数可。SD のディスクを読み取り専用でマウントして指定すると、Pool 容量サマリーに「ディスク上の実容量」が出る。未設定なら「—」 |
 | `PORT` | 待ち受けポート（既定 8080） |
 
 ## 開発

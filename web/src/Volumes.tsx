@@ -62,11 +62,10 @@ function Bar({ v, onJob }: { v: Volume; onJob: (id: number) => void }) {
 type PoolSummary = {
   pool: string; volumes: number; usedBytes: number;
   reusableBytes: number; appendFreeBytes: number; unallocatedBytes: number | null;
-  disk: { bytes: number; found: number; total: number } | null;
   storages: { name: string; diskFreeBytes: number | null }[];
 };
 
-// Pool ごとの容量サマリー。実容量 (ディスク) は VOLUME_DIRS を設定したときだけ出る。
+// Pool ごとの容量サマリー。
 function PoolSummaries() {
   const q = useQuery({ queryKey: ["pools"], queryFn: async () => {
     const r = await fetch("/api/pools");
@@ -83,7 +82,6 @@ function PoolSummaries() {
             <thead>
               <tr>
                 <th>Pool</th><th className="text-right">Volume 数</th>
-                <th className="text-right">ディスク上の実容量</th>
                 <th className="text-right">Volume 使用量 (VolBytes)</th>
                 <th className="text-right">空き (再利用可 + 追記可 + 未作成)</th>
                 <th className="text-right">ディスクの空き</th>
@@ -96,12 +94,6 @@ function PoolSummaries() {
                   <tr key={p.pool}>
                     <td><b>{p.pool}</b></td>
                     <td className="text-right">{p.volumes}</td>
-                    <td className="text-right">
-                      {p.disk ? formatBytes(p.disk.bytes) : "—"}
-                      {p.disk && p.disk.found < p.disk.total && (
-                        <span className="text-warning" title="ファイルが見つからない Volume は含まれません"> ({p.disk.found}/{p.disk.total} 本)</span>
-                      )}
-                    </td>
                     <td className="text-right">{formatBytes(p.usedBytes)}</td>
                     <td className="text-right" title={`再利用可 ${formatBytes(p.reusableBytes)} / 追記可 ${formatBytes(p.appendFreeBytes)} / 未作成 ${p.unallocatedBytes === null ? "不明" : formatBytes(p.unallocatedBytes)}`}>
                       {formatBytes(free)}
@@ -119,7 +111,7 @@ function PoolSummaries() {
         </div>
       )}
       <p className="text-base-content/60 text-xs">
-        実容量: File Volume の実ファイルの合計 (VOLUME_DIRS 未設定なら「—」)。
+        Volume 使用量は VolBytes の合計で、ディスク上のファイルサイズとほぼ等しい。
         空き: Purged/Recycle の Volume の容量 + 追記中 Volume の残り + MaxVols まで未作成の分。
         ディスクの空き: SD が報告する File デバイスのファイルシステムの空き (テープは対象外)。
       </p>
